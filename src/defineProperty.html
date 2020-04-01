@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Document</title>
+</head>
+
+<body>
+  <div id="app"></div>
+  <script>
+    const app = document.getElementById('app')
+    function definedReactive(obj, key, val) {
+      Object.defineProperty(obj, key, {
+        get() {
+          console.log('get', key, val)
+          return val
+        },
+        set(newVal) {
+          if (newVal !== val) {
+            console.log('set', key, newVal)
+            // val这里可以是一个局部变量，将来在外部使用的时候，会形成闭包，就不会被内存释放掉
+            val = newVal
+            // 使用视图的更新函数
+            update()
+          }
+        }
+      })
+    }
+
+    function update() {
+      app.innerText = obj.foo
+    }
+    const obj = {}
+    definedReactive(obj, 'foo', '')
+    obj.foo = new Date().toLocaleTimeString()
+    setInterval(() => {
+      obj.foo = new Date().toLocaleTimeString()
+    }, 1000)
+  </script>
+</body>
+
+</html>
