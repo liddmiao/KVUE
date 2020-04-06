@@ -13,13 +13,15 @@
     <p k-text="counter"></p>
     <p k-html="desc"></p>
   </div>
-  <script src="./kvue.js"></script>
+  <!-- <script src="./kvue.js"></script> -->
+  <script src="./Vue.js"></script>
   <script>
     const app = new KVue({
       el: '#app',
       data: {
         counter: 1,
-        desc: '<span style="color:red;">kvue</span>'
+        desc: '<span style="color:red;">kvue</span>',
+        obj: { a: 1, b: 2 }
       }
     })
     setInterval(() => {

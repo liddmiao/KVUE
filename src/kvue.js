@@ -3,7 +3,7 @@ function observe (obj) {
     return
   }
   // 每遍历赐个对象的属性，创建一个observer实例Ob
-  new Observer(obj)
+  obj.__Ob__ = new Observer(obj)
 }
 
 function definedReactive (obj, key, val) {
