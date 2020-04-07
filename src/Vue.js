@@ -7,7 +7,7 @@ const arrayProto = Array.prototype
 const newProto = Object.create(arrayProto)
 const methods = ['push', 'pop', 'shift', 'unshift', 'sort', 'reverse', 'splice']
 methods.forEach(method => {
-  newProto[method] = function () {
+  newProto[method] = function() {
     // 执行这个方法原有的功能
     arrayProto[method].apply(this, arguments)
     // 这里添加一个更新通知,并重新对arr做响应式处理
@@ -16,12 +16,12 @@ methods.forEach(method => {
   }
 })
 
-
 // 声明一个KVueL类
 class KVue {
   constructor(options) {
     this.$options = options
     this.$data = options.data
+    this.$set = set
     // 响应式处理
     observe(this.$data)
 
@@ -38,7 +38,7 @@ class Observer {
     this.value = value
     this.walk(value)
   }
-  walk (val) {
+  walk(val) {
     // 判断是否数组
     if (Array.isArray(val)) {
       val.__proto__ = newProto
@@ -60,7 +60,7 @@ class Compile {
     this.$el = document.querySelector(el)
     this.compile(this.$el)
   }
-  compile (el) {
+  compile(el) {
     // 遍历当前所有的子节点，判断它是元素节点还是文本节点，nodeType等于1是html元素，等于3是文本
     const childNodes = el.childNodes
     Array.from(childNodes).forEach(node => {
@@ -78,7 +78,7 @@ class Compile {
     })
   }
   // 编译html元素，或取其中的指令
-  compileElement (node) {
+  compileElement(node) {
     // 获取node的所有attr进行遍历，得到我们需要的指令并进行对应操作
     const nodeAttr = node.attributes
     Array.from(nodeAttr).forEach(attr => {
@@ -93,7 +93,7 @@ class Compile {
     })
   }
   // 编译文本，判断是否插值表达式,并触发更新函数
-  compileText (node) {
+  compileText(node) {
     // /\{\{(.*)\}\}/.test(node.textContent)匹配{{}}并把大括号里面的文本赋值给RegExp.$1
     if (/\{\{(.*)\}\}/.test(node.textContent)) {
       node.textContent = this.$vm[RegExp.$1]
@@ -101,38 +101,79 @@ class Compile {
     }
   }
   // 更新方法，接收节点、值、指令名称三个参数
-  update (node, exp, dir) {
+  update(node, exp, dir) {
     const fn = this[dir + 'Updater']
     fn && fn(node, this.$vm[exp])
+    // 触发Watcher去更新视图
+    new Watcher(this.$vm, exp, function(val) {
+      fn && fn(node, val)
+    })
   }
   // k-html对应的方法
-  html (node, exp) {
+  html(node, exp) {
     node.textContent = this.$vm[exp]
     this.update(node, exp, 'html')
   }
-  htmlUpdater (node, val) {
+  htmlUpdater(node, val) {
     node.innerHTML = val
   }
   // k-text对应的方法
-  text (node, exp) {
+  text(node, exp) {
     node.textContent = this.$vm[exp]
     this.update(node, exp, 'text')
   }
-  textUpdater (node, val) {
+  textUpdater(node, val) {
     node.textContent = val
   }
 }
 
+// 监听数据的变化，然后更新视图。接收key和它对应的更新函数
+class Watcher {
+  constructor(vm, key, fn) {
+    this.$vm = vm
+    this.$key = key
+    this.$updateFn = fn
+
+    Dep.target = this
+    this.$vm[this.$key]
+    Dep.target = null
+  }
+  // 触发key的对应更新函数
+  update() {
+    this.$updateFn.call(this.$vm, this.$vm[this.$key])
+  }
+}
+
+class Dep {
+  constructor() {
+    this.watchers = []
+  }
+  addDep(watcher) {
+    this.watchers.push(watcher)
+  }
+  // 通知更新
+  notify() {
+    this.watchers.forEach(watcher => {
+      watcher.update()
+    })
+  }
+}
+
+// 用户可以使用vm.$set给一个数据赋予响应式的值
+function set(obj, key, val) {
+  defineReactive(obj, key, val)
+}
+
 // 数据代理函数,将$data中的数据代理到vm上，这样我们就能使用vm.xx来获取数据
-function proxy (vm, prop) {
+function proxy(vm, prop) {
   // 遍历vm[prop]中的数据，使用object.defineProperty()将每一个数据绑定到vm上
   // 使用vm.xx时，如果是获取值，则会触发get，设置值触发set
   Object.keys(vm[prop]).forEach(key => {
     Object.defineProperty(vm, key, {
-      get () {
+      get() {
         return vm[prop][key]
       },
-      set (value) {
+      set(value) {
         vm[prop][key] = value
       }
     })
@@ -140,7 +181,7 @@ function proxy (vm, prop) {
 }
 
 // 监控数据，如果是对象或数组需要做响应式处理
-function observe (obj) {
+function observe(obj) {
   if (!obj || typeof obj !== 'object') {
     return
   }
@@ -148,17 +189,21 @@ function observe (obj) {
 }
 
 // 响应式处理数据
-function defineReactive (obj, key, val) {
+function defineReactive(obj, key, val) {
   // 递归处理val
   observe(val)
   Object.defineProperty(obj, key, {
-    get () {
+    get() {
       return val
     },
-    set (newVal) {
+    set(newVal) {
       if (newVal !== val) {
         observe(newVal)
         val = newVal
+        // 通知watcher更新视图
+        watchers.forEach(watcher => {
+          watcher.update()
+        })
       }
     }
   })

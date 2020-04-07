@@ -1,4 +1,4 @@
-function observe (obj) {
+function observe(obj) {
   if (typeof obj !== 'object' || obj === null) {
     return
   }
@@ -6,7 +6,7 @@ function observe (obj) {
   obj.__Ob__ = new Observer(obj)
 }
 
-function definedReactive (obj, key, val) {
+function definedReactive(obj, key, val) {
   // 递归遍历，如果val本身是个对象，继续执行observe
   observe(val)
 
@@ -14,13 +14,13 @@ function definedReactive (obj, key, val) {
   const dep = new Dep()
 
   Object.defineProperty(obj, key, {
-    get () {
+    get() {
       // console.log('get', key, val)
       // 判断Dep.target是否有
       Dep.target && dep.addDep(Dep.target)
       return val
     },
-    set (newVal) {
+    set(newVal) {
       if (newVal !== val) {
         //如果newVal本身是对象，则val本身需要做响应式处理
         observe(newVal)
@@ -36,17 +36,17 @@ function definedReactive (obj, key, val) {
   })
 }
 
-function set (obj, key, val) {
+function set(obj, key, val) {
   definedReactive(obj, key, val)
 }
 
-function Proxy (vm, prop) {
+function Proxy(vm, prop) {
   Object.keys(vm[prop]).forEach(key => {
     Object.defineProperty(vm, key, {
-      get () {
+      get() {
         return vm[prop][key]
       },
-      set (newVal) {
+      set(newVal) {
         vm[prop][key] = newVal
       }
     })
@@ -59,7 +59,7 @@ class Observer {
     this.value = value
     this.walk(value)
   }
-  walk (obj) {
+  walk(obj) {
     Object.keys(obj).forEach(key => {
       definedReactive(obj, key, obj[key])
     })
@@ -76,7 +76,7 @@ class Compile {
     this.$el = document.querySelector(el)
     this.compile(this.$el)
   }
-  compile (el) {
+  compile(el) {
     const childNodes = el.childNodes
     Array.from(childNodes).forEach(node => {
       // 元素类型
@@ -95,41 +95,41 @@ class Compile {
     })
   }
   // 更新方法,接收一个节点，一个表达式，一个指令
-  update (node, exp, dir) {
+  update(node, exp, dir) {
     const fn = this[dir + 'Updater']
     // 初始化
     fn && fn(node, this.$vm[exp])
     // 更新
-    new Watcher(this.$vm, exp, function (val) {
+    new Watcher(this.$vm, exp, function(val) {
       fn && fn(node, val)
     })
   }
   // text具体的操作
-  textUpdater (node, val) {
+  textUpdater(node, val) {
     node.textContent = val
   }
-  htmlUpdater (node, val) {
+  htmlUpdater(node, val) {
     node.innerHTML = val
   }
   // 判断是否是元素
-  isElement (node) {
+  isElement(node) {
     return node.nodeType === 1
   }
   // 判断是否是插值表达式
-  isInter (node) {
+  isInter(node) {
     return node.nodeType === 3 && /\{\{(.*)\}\}/.test(node.textContent)
   }
   // 判断属性是否是指令
-  isDir (attr) {
+  isDir(attr) {
     return attr.indexOf('k-') === 0
   }
   // 编译插值文本,初始化
-  compileText (node) {
+  compileText(node) {
     node.textContent = this.$vm[RegExp.$1]
     this.update(node, RegExp.$1, 'text')
   }
   // 编译元素节点，判断它的属性是否是k-xx,@xx
-  compileElement (node) {
+  compileElement(node) {
     let nodeAttr = node.attributes
     Array.from(nodeAttr).forEach(attr => {
       let attrName = attr.name
@@ -141,11 +141,11 @@ class Compile {
       }
     })
   }
-  text (node, exp) {
+  text(node, exp) {
     node.textContent = this.$vm[exp]
     this.update(node, exp, 'text')
   }
-  html (node, exp) {
+  html(node, exp) {
     this.update(node, exp, 'html')
   }
 }
@@ -164,7 +164,7 @@ class Watcher {
     Dep.target = null
   }
   // 这个方法是由dep来调用的
-  update () {
+  update() {
     this.updater.call(this.vm, this.vm[this.key])
   }
 }
@@ -174,10 +174,10 @@ class Dep {
   constructor() {
     this.watchers = []
   }
-  addDep (watcher) {
+  addDep(watcher) {
     this.watchers.push(watcher)
   }
-  notify () {
+  notify() {
     this.watchers.forEach(w => w.update())
   }
 }
