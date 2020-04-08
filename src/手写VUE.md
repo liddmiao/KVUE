@@ -1,3 +1,47 @@
+# 手写VUE
+
+#### 创建KVue类，保存options和data，需要实现响应式、数据代理、编译模板的功能
+
+```JavaScript
+class KVue {
+  constructor(options) {
+    this.$options = options
+    this.$data = options.data
+    // 响应式处理
+    observe(this.$data)
+
+    // 数据代理
+    Proxy(this, '$data')
+
+    // 编译模板
+    new Compile(this, options.el)
+  }
+}
+```
+
+- 数据代理
+
+```JavaScript
+// 数据代理函数,将$data中的数据代理到vm上，这样我们就能使用vm.xx来获取数据
+function Proxy (vm, prop) {
+  // 遍历vm[prop]中的数据，使用object.defineProperty()将每一个数据绑定到vm上
+  // 使用vm.xx时，如果是获取值，则会触发get，设置值触发set
+  Object.keys(vm[prop]).forEach(key => {
+    Object.defineProperty(vm, key, {
+      get () {
+        return vm[prop][key]
+      },
+      set (value) {
+        vm[prop][key] = value
+      }
+    })
+  })
+}
+```
+
+- 数据响应式处理，和响应式基础的代码是一样的，只是这里我们创建了一个Observer类来进行数据劫持和响应化
+
+```JavaScript
 // 1、拿出数组的原型
 // 2、克隆数组的原型，不然所有数组都变了
 // 3、修改七个方法
@@ -7,7 +51,7 @@ const arrayProto = Array.prototype
 const newProto = Object.create(arrayProto)
 const methods = ['push', 'pop', 'shift', 'unshift', 'sort', 'reverse', 'splice']
 methods.forEach(method => {
-  newProto[method] = function() {
+  newProto[method] = function () {
     // 执行这个方法原有的功能
     arrayProto[method].apply(this, arguments)
     // 这里添加一个更新通知,并重新对arr做响应式处理
@@ -16,29 +60,13 @@ methods.forEach(method => {
   }
 })
 
-// 声明一个KVueL类
-class KVue {
-  constructor(options) {
-    this.$options = options
-    this.$data = options.data
-    this.$set = set
-    // 响应式处理
-    observe(this.$data)
-
-    // 数据代理
-    proxy(this, '$data')
-
-    // 编译模板
-    new Compile(this, options.el)
-  }
-}
 // 数据劫持构造函数，对所有属性做响应式处理
 class Observer {
   constructor(value) {
     this.value = value
     this.walk(value)
   }
-  walk(val) {
+  walk (val) {
     // 判断是否数组
     if (Array.isArray(val)) {
       val.__proto__ = newProto
@@ -53,7 +81,37 @@ class Observer {
   }
 }
 
-//编译模板构造函数，它需要解析插值表达式和指令，并更新视图
+// 监控数据，如果是对象或数组需要做响应式处理
+function observe (obj) {
+  if (!obj || typeof obj !== 'object') {
+    return
+  }
+  obj.__ob__ = new Observer(obj)
+}
+
+// 响应式处理数据
+function defineReactive (obj, key, val) {
+  // 递归处理val
+  observe(val)
+  Object.defineProperties(obj, key, {
+    get () {
+      return val
+    },
+    set (newVal) {
+      if (newVal !== val) {
+        observe(newVal)
+        val = newVal
+      }
+    }
+  })
+}
+```
+
+- 编译模板
+
+编译模板中主要完成两个功能：解析指令和插值表达式、每个指令对应的方法
+
+```javascript
 class Compile {
   constructor(vm, el) {
     this.$vm = vm
@@ -105,9 +163,6 @@ class Compile {
     const fn = this[dir + 'Updater']
     fn && fn(node, this.$vm[exp])
     // 触发Watcher去更新视图
-    new Watcher(this.$vm, exp, function(val) {
-      fn && fn(node, val)
-    })
   }
   // k-html对应的方法
   html(node, exp) {
@@ -126,7 +181,13 @@ class Compile {
     node.textContent = val
   }
 }
+```
 
+- 依赖收集
+
+所谓依赖，就是视图中所使用的data中的某个key。依赖收集就就是给每一个依赖创建一个Watcher来维护他，相同key的Watcher使用一个Dep来管理，当数据变化时，通过这个个Dep统一通知更新。
+
+```javascript
 // 监听数据的变化，然后更新视图。接收key和它对应的更新函数
 class Watcher {
   constructor(vm, key, fn) {
@@ -159,38 +220,11 @@ class Dep {
       watcher.update()
     })
   }
-}
+```
 
-// 用户可以使用vm.$set给一个数据赋予响应式的值
-function set(obj, key, val) {
-  defineReactive(obj, key, val)
-}
+然后我们需要修改一下defineReactive方法，每响应化一个变量，都创建一个dep，这个变量的getter和setter都能访问到它。
 
-// 数据代理函数,将$data中的数据代理到vm上，这样我们就能使用vm.xx来获取数据
-function proxy(vm, prop) {
-  // 遍历vm[prop]中的数据，使用object.defineProperty()将每一个数据绑定到vm上
-  // 使用vm.xx时，如果是获取值，则会触发get，设置值触发set
-  Object.keys(vm[prop]).forEach(key => {
-    Object.defineProperty(vm, key, {
-      get() {
-        return vm[prop][key]
-      },
-      set(value) {
-        vm[prop][key] = value
-      }
-    })
-  })
-}
-
-// 监控数据，如果是对象或数组需要做响应式处理
-function observe(obj) {
-  if (!obj || typeof obj !== 'object') {
-    return
-  }
-  obj.__ob__ = new Observer(obj)
-}
-
-// 响应式处理数据
+```JavaScript
 function  (obj, key, val) {
   // 递归处理val
   observe(val)
@@ -211,3 +245,18 @@ function  (obj, key, val) {
     }
   })
 }
+```
+
+compile中的update方法也需要创建Watcher，去更新视图。
+
+```javascript
+ // 更新方法，接收节点、值、指令名称三个参数
+  update(node, exp, dir) {
+    const fn = this[dir + 'Updater']
+    fn && fn(node, this.$vm[exp])
+    // 触发Watcher去更新视图
+    new Watcher(this.$vm, exp, function(val) {
+      fn && fn(node, val)
+    })
+  }
+```
