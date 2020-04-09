@@ -9,10 +9,10 @@
   <body>
     <div id="app">
       <p>{{counter}}</p>
-      <p k-text="counter"></p>
+      <p @click="onClick" k-text="counter"></p>
       <p k-html="desc"></p>
+      <input type="text" k-model="desc" />
     </div>
-    <!-- <script src="./kvue.js"></script> -->
     <script src="./Vue.js"></script>
     <script>
       const app = new KVue({
@@ -20,12 +20,17 @@
         data: {
           counter: 1,
           desc: '<span style="color:red;">kvue</span>',
-          obj: { a: 1, b: 2 }
-        }
+          obj: { a: 1, b: 2 },
+        },
+        methods: {
+          onClick() {
+            this.counter++
+          },
+        },
       })
-      setInterval(() => {
-        app.counter++
-      }, 1000)
+      // setInterval(() => {
+      //   app.counter++
+      // }, 1000)
     </script>
   </body>
 </html>

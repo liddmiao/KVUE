@@ -148,6 +148,11 @@ class Compile {
         const dir = attrName.substring(2)
         this[dir] && this[dir](node, attrValue)
       }
+      if (attrName.indexOf('@') === 0) {
+        // @绑定的事件
+        let dir = attrName.substring(1)
+        this.eventHandler(node, dir, attrValue)
+      }
     })
   }
   // 编译文本，判断是否插值表达式,并触发更新函数
@@ -179,6 +184,25 @@ class Compile {
   }
   textUpdater(node, val) {
     node.textContent = val
+  }
+  // k-model对应的方法
+  model(node, exp) {
+    // update负责更新视图，添加事件监控来更新vm中的值，实现双向绑定
+    this.update(node, exp, 'model')
+    node.addEventListener('input', (e) => {
+      this.$vm[exp] = e.target.value
+    })
+  }
+  modelUpdater(node, val) {
+    // 表单元素，大部分是设置value值
+    node.value = val
+  }
+  // @绑定的事件处理函数，接受node、事件名称、处理函数名称
+  eventHandler(node, dir, handler) {
+    // 给node绑定对应的事件
+    // 在处理回调函数的时候需要注意一点: fn中可能会通过this.xx使用vm中的某个选项，所以，这里要把this的指向改为this.$vm
+    const fn = this.$vm.$options.methods && this.$vm.$options.methods[handler]
+    node.addEventListener(dir, fn.bind(this.$vm))
   }
 }
 ```

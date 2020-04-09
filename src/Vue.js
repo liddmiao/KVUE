@@ -6,8 +6,8 @@
 const arrayProto = Array.prototype
 const newProto = Object.create(arrayProto)
 const methods = ['push', 'pop', 'shift', 'unshift', 'sort', 'reverse', 'splice']
-methods.forEach(method => {
-  newProto[method] = function() {
+methods.forEach((method) => {
+  newProto[method] = function () {
     // 执行这个方法原有的功能
     arrayProto[method].apply(this, arguments)
     // 这里添加一个更新通知,并重新对arr做响应式处理
@@ -46,7 +46,7 @@ class Observer {
         defineReactive(val[i])
       }
     } else {
-      Object.keys(val).forEach(key => {
+      Object.keys(val).forEach((key) => {
         defineReactive(val, key, val[key])
       })
     }
@@ -63,7 +63,7 @@ class Compile {
   compile(el) {
     // 遍历当前所有的子节点，判断它是元素节点还是文本节点，nodeType等于1是html元素，等于3是文本
     const childNodes = el.childNodes
-    Array.from(childNodes).forEach(node => {
+    Array.from(childNodes).forEach((node) => {
       if (node.nodeType === 1) {
         // 元素节点，获取他的attr，并判断是否是指令
         this.compileElement(node)
@@ -81,7 +81,7 @@ class Compile {
   compileElement(node) {
     // 获取node的所有attr进行遍历，得到我们需要的指令并进行对应操作
     const nodeAttr = node.attributes
-    Array.from(nodeAttr).forEach(attr => {
+    Array.from(nodeAttr).forEach((attr) => {
       // 获取属性的名称和值，根据名称判断是否是指令，这里支持‘k-’开头的指令
       let attrName = attr.name
       let attrValue = attr.value
@@ -89,6 +89,11 @@ class Compile {
         // 如果是指令，执行对应的方法
         const dir = attrName.substring(2)
         this[dir] && this[dir](node, attrValue)
+      }
+      if (attrName.indexOf('@') === 0) {
+        // @绑定的事件
+        let dir = attrName.substring(1)
+        this.eventHandler(node, dir, attrValue)
       }
     })
   }
@@ -105,7 +110,7 @@ class Compile {
     const fn = this[dir + 'Updater']
     fn && fn(node, this.$vm[exp])
     // 触发Watcher去更新视图
-    new Watcher(this.$vm, exp, function(val) {
+    new Watcher(this.$vm, exp, function (val) {
       fn && fn(node, val)
     })
   }
@@ -124,6 +129,25 @@ class Compile {
   }
   textUpdater(node, val) {
     node.textContent = val
+  }
+  // k-model对应的方法
+  model(node, exp) {
+    // update负责更新视图，添加事件监控来更新vm中的值，实现双向绑定
+    this.update(node, exp, 'model')
+    node.addEventListener('input', (e) => {
+      this.$vm[exp] = e.target.value
+    })
+  }
+  modelUpdater(node, val) {
+    // 表单元素，大部分是设置value值
+    node.value = val
+  }
+  // @绑定的事件处理函数，接受node、事件名称、处理函数名称
+  eventHandler(node, dir, handler) {
+    // 给node绑定对应的事件
+    // 在处理回调函数的时候需要注意一点: fn中可能会通过this.xx使用vm中的某个选项，所以，这里要把this的指向改为this.$vm
+    const fn = this.$vm.$options.methods && this.$vm.$options.methods[handler]
+    node.addEventListener(dir, fn.bind(this.$vm))
   }
 }
 
@@ -155,7 +179,7 @@ class Dep {
   }
   // 当key变化的时候，通知这个key对应的所有Watcher更新视图
   notify() {
-    this.watchers.forEach(watcher => {
+    this.watchers.forEach((watcher) => {
       watcher.update()
     })
   }
@@ -170,14 +194,14 @@ function set(obj, key, val) {
 function proxy(vm, prop) {
   // 遍历vm[prop]中的数据，使用object.defineProperty()将每一个数据绑定到vm上
   // 使用vm.xx时，如果是获取值，则会触发get，设置值触发set
-  Object.keys(vm[prop]).forEach(key => {
+  Object.keys(vm[prop]).forEach((key) => {
     Object.defineProperty(vm, key, {
       get() {
         return vm[prop][key]
       },
       set(value) {
         vm[prop][key] = value
-      }
+      },
     })
   })
 }
@@ -191,7 +215,7 @@ function observe(obj) {
 }
 
 // 响应式处理数据
-function  (obj, key, val) {
+function defineReactive(obj, key, val) {
   // 递归处理val
   observe(val)
 
@@ -208,6 +232,6 @@ function  (obj, key, val) {
         // 通知watcher更新视图
         dep.notify()
       }
-    }
+    },
   })
 }
